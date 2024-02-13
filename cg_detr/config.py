@@ -84,7 +84,9 @@ class BaseOptions(object):
         parser.add_argument("--t_feat_dim", type=int, help="text/query feature dim")
         parser.add_argument("--a_feat_dim", type=int, help="audio feature dim")
         parser.add_argument("--ctx_mode", type=str, default="video_tef")
-
+        parser.add_argument('--m_classes', type=str, default=None)
+        
+        
         # Model config
         parser.add_argument('--position_embedding', default='sine', type=str, choices=('sine', 'learned'),
                             help="Type of positional embedding to use on top of the image features")

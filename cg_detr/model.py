@@ -56,7 +56,7 @@ class CGDETR(nn.Module):
     def __init__(self, transformer, position_embed, txt_position_embed, txt_dim, vid_dim,
                  num_queries, input_dropout, aux_loss=False,
                  contrastive_align_loss=False, contrastive_hdim=64,
-                 max_v_l=75, span_loss_type="l1", use_txt_pos=False, n_input_proj=2, aud_dim=0, args=None):
+                 max_v_l=75, span_loss_type="l1", use_txt_pos=False, n_input_proj=2, aud_dim=0, m_classes=None, args=None):
         """ Initializes the model.
         Parameters:
             transformer: torch module of the transformer architecture. See transformer.py
@@ -87,7 +87,7 @@ class CGDETR(nn.Module):
         self.max_v_l = max_v_l
         span_pred_dim = 2 if span_loss_type == "l1" else max_v_l * 2
         self.span_embed = MLP(hidden_dim, hidden_dim, span_pred_dim, 3)
-        self.class_embed = nn.Linear(hidden_dim, 2)  # 0: background, 1: foreground
+        # self.class_embed = nn.Linear(hidden_dim, 2)  # 0: background, 1: foreground
         self.token_type_embeddings = nn.Embedding(2, hidden_dim)
         self.token_type_embeddings.apply(init_weights)
         self.use_txt_pos = use_txt_pos
@@ -135,6 +135,12 @@ class CGDETR(nn.Module):
         scls_encoder_layer = TransformerEncoderLayer(hidden_dim, 8, self.args.dim_feedforward, 0.1, "prelu", normalize_before)
         scls_encoder_norm = nn.LayerNorm(hidden_dim) if normalize_before else None
         self.scls_encoder = TransformerEncoder(scls_encoder_layer, args.sent_layers, scls_encoder_norm)
+        
+        if m_classes is None:
+            self.class_embed = nn.Linear(hidden_dim, 2)  # 0: background, 1: foreground
+        else:
+            self.m_vals = [int(v) for v in m_classes[1:-1].split(',')]
+            self.class_embed = nn.Linear(hidden_dim, len(self.m_vals) +1 )  # [:-1] : foreground / [-1] : background
 
     def forward(self, src_txt, src_txt_mask, src_vid, src_vid_mask, vid, qid, src_aud=None, src_aud_mask=None, targets=None):
         """The forward expects two tensors:
@@ -366,7 +372,7 @@ class SetCriterion(nn.Module):
     """
 
     def __init__(self, matcher, weight_dict, eos_coef, losses, temperature, span_loss_type, max_v_l,
-                 saliency_margin=1, use_matcher=True, args=None):
+                 saliency_margin=1, use_matcher=True, m_classes=None, args=None):
         """ Create the criterion.
         Parameters:
             matcher: module able to compute a matching between targets and proposals
@@ -383,18 +389,26 @@ class SetCriterion(nn.Module):
         self.matcher = matcher
         self.weight_dict = weight_dict
         self.losses = losses
+        self.eos_coef = eos_coef
         self.temperature = temperature
         self.span_loss_type = span_loss_type
         self.max_v_l = max_v_l
         self.saliency_margin = saliency_margin
 
-        # foreground and background classification
-        self.foreground_label = 0
-        self.background_label = 1
-        self.eos_coef = eos_coef
-        empty_weight = torch.ones(2)
-        empty_weight[-1] = self.eos_coef  # lower weight for background (index 1, foreground index 0)
-        self.register_buffer('empty_weight', empty_weight)
+        self.m_classes = m_classes
+        if m_classes is None:
+            # foreground and background classification
+            self.foreground_label = 0
+            self.background_label = 1
+
+            empty_weight = torch.ones(2)
+            empty_weight[-1] = self.eos_coef  # lower weight for background (index 1, foreground index 0)
+            self.register_buffer('empty_weight', empty_weight)
+        else:
+            self.num_classes = len(m_classes[1:-1].split(','))
+            empty_weight = torch.ones(self.num_classes+ 1)
+            empty_weight[-1] = self.eos_coef  # lower weight for background (index 1, foreground index 0)
+            self.register_buffer('empty_weight', empty_weight) 
         
         # for tvsum,
         self.use_matcher = use_matcher
@@ -438,16 +452,27 @@ class SetCriterion(nn.Module):
         src_logits = outputs['pred_logits']  # (batch_size, #queries, #classes=2)
         # idx is a tuple of two 1D tensors (batch_idx, src_idx), of the same length == #objects in batch
         idx = self._get_src_permutation_idx(indices)
-        target_classes = torch.full(src_logits.shape[:2], self.background_label,
-                                    dtype=torch.int64, device=src_logits.device)  # (batch_size, #queries)
-        target_classes[idx] = self.foreground_label
 
+        if self.m_classes is None:
+            target_classes = torch.full(src_logits.shape[:2], self.background_label,
+                                        dtype=torch.int64, device=src_logits.device)  # (batch_size, #queries)
+            target_classes[idx] = self.foreground_label
+        else:
+            target_classes = torch.full(src_logits.shape[:2], self.num_classes,
+                                        dtype=torch.int64, device=src_logits.device)  # (batch_size, #queries)
+
+            target_classes_o = torch.cat([t["m_cls"][J] for t, (_, J) in zip(targets['moment_class'], indices)])
+            target_classes[idx] = target_classes_o
+            
         loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight, reduction="none")
         losses = {'loss_label': loss_ce.mean()}
 
         if log:
             # TODO this should probably be a separate loss, not hacked in this one here
-            losses['class_error'] = 100 - accuracy(src_logits[idx], self.foreground_label)[0]
+            if self.m_classes is None:
+                losses['class_error'] = 100 - accuracy(src_logits[idx], self.foreground_label)[0]
+            else:
+                losses['class_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
         return losses
 
     def loss_saliency(self, outputs, targets, indices, log=True):
@@ -1000,6 +1025,7 @@ def build_model(args):
             span_loss_type=args.span_loss_type,
             use_txt_pos=args.use_txt_pos,
             n_input_proj=args.n_input_proj,
+            m_classes=args.m_classes,
             args=args
         )
     else:
@@ -1018,6 +1044,7 @@ def build_model(args):
             span_loss_type=args.span_loss_type,
             use_txt_pos=args.use_txt_pos,
             n_input_proj=args.n_input_proj,
+            m_classes=args.m_classes,
             args=args
         )
 
@@ -1049,7 +1076,7 @@ def build_model(args):
         matcher=matcher, weight_dict=weight_dict, losses=losses,
         eos_coef=args.eos_coef, temperature=args.temperature,
         span_loss_type=args.span_loss_type, max_v_l=args.max_v_l,
-        saliency_margin=args.saliency_margin, use_matcher=use_matcher, args=args
+        saliency_margin=args.saliency_margin, use_matcher=use_matcher, m_classes=args.m_classes, args=args
     )
     criterion.to(device)
     return model, criterion

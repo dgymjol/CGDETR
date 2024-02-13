@@ -74,7 +74,7 @@ class StartEndDataset(Dataset):
                  max_q_l=32, max_v_l=75, data_ratio=1.0, ctx_mode="video",
                  normalize_v=True, normalize_t=True, load_labels=True,
                  clip_len=2, max_windows=5, span_loss_type="l1", txt_drop_ratio=0,
-                 dset_domain=None):
+                 dset_domain=None, m_classes = None):
         self.dset_name = dset_name
         self.data_path = data_path
         self.data_ratio = data_ratio
@@ -140,6 +140,9 @@ class StartEndDataset(Dataset):
             self.vocab.vectors = torch.cat(
                 (self.vocab.vectors, torch.zeros(1, self.vocab.dim)), dim=0)
             self.embedding = nn.Embedding.from_pretrained(self.vocab.vectors)
+            
+        if m_classes is not None:
+            self.m_vals = [int(v) for v in m_classes[1:-1].split(',')]
         
 
     def load_data(self):
@@ -197,7 +200,7 @@ class StartEndDataset(Dataset):
                         self.get_saliency_labels_all_youtube(meta_label, ctx_l)
         else:
             if "relevant_windows" in meta: ## For Qvhighlights test set
-                model_inputs["span_labels"] = self.get_span_labels(meta["relevant_windows"], ctx_l)  # (#windows, 2)
+                model_inputs["span_labels"], lengths = self.get_span_labels(meta["relevant_windows"], ctx_l) # (#windows, 2)
                 if self.dset_name in ['charadesSTA', 'tacos', 'activitynet']: ## charades, tacos, nlq
                     model_inputs["saliency_pos_labels"], model_inputs["saliency_neg_labels"], model_inputs["saliency_all_labels"] = \
                         self.get_saliency_labels_sub_as_query(meta["relevant_windows"][0], meta["duration"], ctx_l)  # only one gt
@@ -211,6 +214,15 @@ class StartEndDataset(Dataset):
                     model_inputs["saliency_pos_labels"], model_inputs["saliency_neg_labels"], model_inputs[
                         "saliency_all_labels"] = \
                         self.get_saliency_labels_sub_as_query(meta["relevant_windows"][0], meta["duration"], ctx_l)  # only one gt
+                moment_class = []
+                if self.m_vals is not None:
+                    for l in lengths:
+                        for m_cls, m_val in enumerate(self.m_vals):
+                            if l <= m_val:
+                                moment_class.append(m_cls)
+                                break
+                    model_inputs["moment_class"] = torch.tensor(moment_class)
+                    assert len(model_inputs["moment_class"]) == len(lengths)
 
         if 'qvhighlight' in self.data_path:
             model_inputs["relevant_clip_ids"] = meta["relevant_clip_ids"]
@@ -387,9 +399,15 @@ class StartEndDataset(Dataset):
             Note a maximum of `self.max_windows` windows are used.
         returns Tensor of shape (#windows, 2), each row is [center, width] normalized by video length
         """
+            
         if len(windows) > self.max_windows:
             random.shuffle(windows)
             windows = windows[:self.max_windows]
+            
+        lengths = []
+        for w in windows:
+            lengths.append(w[1]-w[0])
+            
         if self.span_loss_type == "l1":
             windows = torch.Tensor(windows) / (ctx_l * self.clip_len)  # normalized windows in xx
             windows = span_xx_to_cxw(windows)  # normalized windows in cxw
@@ -399,7 +417,8 @@ class StartEndDataset(Dataset):
                 for w in windows]).long()  # inclusive
         else:
             raise NotImplementedError
-        return windows
+            
+        return windows, lengths
 
     def _get_query_feat_by_qid(self, qid):
         if self.dset_name == 'tvsum':
@@ -525,6 +544,9 @@ def start_end_collate(batch):
         if k == 'vid':
             batched_data[k] = [e["model_inputs"][k] for e in batch]
             continue
+        if k == "moment_class":
+            batched_data[k] = [dict(m_cls=e["model_inputs"]["moment_class"]) for e in batch]
+            continue
         batched_data[k] = pad_sequences_1d(
             [e["model_inputs"][k] for e in batch], dtype=torch.float32, fixed_length=None)
     return batch_meta, batched_data
@@ -553,5 +575,11 @@ def prepare_batch_inputs(batched_model_inputs, device, non_blocking=False):
     if "saliency_all_labels" in batched_model_inputs:
         targets["saliency_all_labels"] = batched_model_inputs["saliency_all_labels"].to(device, non_blocking=non_blocking)
         targets["relevant_clips"] = batched_model_inputs["saliency_all_labels"].to(device, non_blocking=non_blocking)
+        
+    if "moment_class" in batched_model_inputs:
+        targets["moment_class"] = [
+            dict(m_cls=e["m_cls"].to(device, non_blocking=non_blocking))
+            for e in batched_model_inputs["moment_class"]
+        ]
     targets = None if len(targets) == 0 else targets
     return model_inputs, targets

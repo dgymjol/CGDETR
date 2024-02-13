@@ -350,6 +350,7 @@ def start_training():
         span_loss_type=opt.span_loss_type,
         txt_drop_ratio=opt.txt_drop_ratio,
         dset_domain=opt.dset_domain,
+        m_classes=opt.m_classes,
     )
     dataset_config["data_path"] = opt.train_path
     train_dataset = StartEndDataset(**dataset_config)

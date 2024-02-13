@@ -234,7 +234,11 @@ def compute_mr_results(model, eval_loader, opt, epoch_i=None, criterion=None, tb
         outputs = model(**model_inputs)
         prob = F.softmax(outputs["pred_logits"], -1)  # (batch_size, #queries, #classes=2)
         if opt.span_loss_type == "l1":
-            scores = prob[..., 0]  # * (batch_size, #queries)  foreground label is 0, we directly take it
+            if opt.m_classes is None:
+                scores = prob[..., 0]  # * (batch_size, #queries)  foreground label is 0, we directly take it
+            else:
+                scores, labels = prob[..., :-1].max(-1)
+                
             pred_spans = outputs["pred_spans"]  # (bsz, #queries, 2)
             _saliency_scores = outputs["saliency_scores"].half()  # (bsz, L)
             saliency_scores = []
@@ -454,6 +458,7 @@ def start_inference(train_opt=None, split=None, splitfile=None):
         span_loss_type=opt.span_loss_type,
         txt_drop_ratio=0,
         dset_domain=opt.dset_domain,
+        m_classes=opt.m_classes,
     )
 
 

@@ -45,7 +45,9 @@ sent_layers=1
 max_v_l=75
 max_q_l=32
 
-PYTHONPATH=$PYTHONPATH:. python cg_detr/train.py \
+
+
+CUDA_VISIBLE_DEVICES=1 PYTHONPATH=$PYTHONPATH:. python cg_detr/train.py \
 --dset_name ${dset_name} \
 --ctx_mode ${ctx_mode} \
 --train_path ${train_path} \
@@ -57,7 +59,7 @@ PYTHONPATH=$PYTHONPATH:. python cg_detr/train.py \
 --t_feat_dim ${t_feat_dim} \
 --bsz ${bsz} \
 --results_root ${results_root} \
---exp_id ${exp_id} \
+--exp_id "exp_only_m" \
 --enc_layers ${enc_layers} \
 --dec_layers ${dec_layers} \
 --t2v_layers ${t2v_layers} \
@@ -66,4 +68,150 @@ PYTHONPATH=$PYTHONPATH:. python cg_detr/train.py \
 --sent_layers ${sent_layers} \
 --max_v_l ${max_v_l} \
 --max_q_l ${max_q_l} \
+--m_classes "[50, 100, 150]" \
+${@:1}
+
+
+CUDA_VISIBLE_DEVICES=1 PYTHONPATH=$PYTHONPATH:. python cg_detr/train.py \
+--dset_name ${dset_name} \
+--ctx_mode ${ctx_mode} \
+--train_path ${train_path} \
+--eval_path ${eval_path} \
+--eval_split_name ${eval_split_name} \
+--v_feat_dirs ${v_feat_dirs[@]} \
+--v_feat_dim ${v_feat_dim} \
+--t_feat_dir ${t_feat_dir} \
+--t_feat_dim ${t_feat_dim} \
+--bsz ${bsz} \
+--results_root ${results_root} \
+--exp_id "exp_only_m" \
+--enc_layers ${enc_layers} \
+--dec_layers ${dec_layers} \
+--t2v_layers ${t2v_layers} \
+--moment_layers ${moment_layers} \
+--dummy_layers ${dummy_layers} \
+--sent_layers ${sent_layers} \
+--max_v_l ${max_v_l} \
+--max_q_l ${max_q_l} \
+${@:1}
+
+CUDA_VISIBLE_DEVICES=1 PYTHONPATH=$PYTHONPATH:. python cg_detr/train.py \
+--dset_name ${dset_name} \
+--ctx_mode ${ctx_mode} \
+--train_path ${train_path} \
+--eval_path ${eval_path} \
+--eval_split_name ${eval_split_name} \
+--v_feat_dirs ${v_feat_dirs[@]} \
+--v_feat_dim ${v_feat_dim} \
+--t_feat_dir ${t_feat_dir} \
+--t_feat_dim ${t_feat_dim} \
+--bsz ${bsz} \
+--results_root ${results_root} \
+--exp_id "exp_only_m" \
+--enc_layers ${enc_layers} \
+--dec_layers ${dec_layers} \
+--t2v_layers ${t2v_layers} \
+--moment_layers ${moment_layers} \
+--dummy_layers ${dummy_layers} \
+--sent_layers ${sent_layers} \
+--max_v_l ${max_v_l} \
+--max_q_l ${max_q_l} \
+--m_classes "[10, 30, 50, 70, 90, 110, 130, 150]" \
+${@:1}
+
+
+CUDA_VISIBLE_DEVICES=1 PYTHONPATH=$PYTHONPATH:. python cg_detr/train.py \
+--dset_name ${dset_name} \
+--ctx_mode ${ctx_mode} \
+--train_path ${train_path} \
+--eval_path ${eval_path} \
+--eval_split_name ${eval_split_name} \
+--v_feat_dirs ${v_feat_dirs[@]} \
+--v_feat_dim ${v_feat_dim} \
+--t_feat_dir ${t_feat_dir} \
+--t_feat_dim ${t_feat_dim} \
+--bsz ${bsz} \
+--results_root ${results_root} \
+--exp_id "exp_only_m" \
+--enc_layers ${enc_layers} \
+--dec_layers ${dec_layers} \
+--t2v_layers ${t2v_layers} \
+--moment_layers ${moment_layers} \
+--dummy_layers ${dummy_layers} \
+--sent_layers ${sent_layers} \
+--max_v_l ${max_v_l} \
+--max_q_l ${max_q_l} \
+--m_classes "[30, 60, 90, 120, 150]" \
+${@:1}
+
+CUDA_VISIBLE_DEVICES=1 PYTHONPATH=$PYTHONPATH:. python cg_detr/train.py \
+--dset_name ${dset_name} \
+--ctx_mode ${ctx_mode} \
+--train_path ${train_path} \
+--eval_path ${eval_path} \
+--eval_split_name ${eval_split_name} \
+--v_feat_dirs ${v_feat_dirs[@]} \
+--v_feat_dim ${v_feat_dim} \
+--t_feat_dir ${t_feat_dir} \
+--t_feat_dim ${t_feat_dim} \
+--bsz ${bsz} \
+--results_root ${results_root} \
+--exp_id "exp_only_m" \
+--enc_layers ${enc_layers} \
+--dec_layers ${dec_layers} \
+--t2v_layers ${t2v_layers} \
+--moment_layers ${moment_layers} \
+--dummy_layers ${dummy_layers} \
+--sent_layers ${sent_layers} \
+--max_v_l ${max_v_l} \
+--max_q_l ${max_q_l} \
+--m_classes "[10, 30, 150]" \
+${@:1}
+
+CUDA_VISIBLE_DEVICES=1 PYTHONPATH=$PYTHONPATH:. python cg_detr/train.py \
+--dset_name ${dset_name} \
+--ctx_mode ${ctx_mode} \
+--train_path ${train_path} \
+--eval_path ${eval_path} \
+--eval_split_name ${eval_split_name} \
+--v_feat_dirs ${v_feat_dirs[@]} \
+--v_feat_dim ${v_feat_dim} \
+--t_feat_dir ${t_feat_dir} \
+--t_feat_dim ${t_feat_dim} \
+--bsz ${bsz} \
+--results_root ${results_root} \
+--exp_id "exp_only_m" \
+--enc_layers ${enc_layers} \
+--dec_layers ${dec_layers} \
+--t2v_layers ${t2v_layers} \
+--moment_layers ${moment_layers} \
+--dummy_layers ${dummy_layers} \
+--sent_layers ${sent_layers} \
+--max_v_l ${max_v_l} \
+--max_q_l ${max_q_l} \
+--m_classes "[10, 30, 70, 150]" \
+${@:1}
+
+CUDA_VISIBLE_DEVICES=1 PYTHONPATH=$PYTHONPATH:. python cg_detr/train.py \
+--dset_name ${dset_name} \
+--ctx_mode ${ctx_mode} \
+--train_path ${train_path} \
+--eval_path ${eval_path} \
+--eval_split_name ${eval_split_name} \
+--v_feat_dirs ${v_feat_dirs[@]} \
+--v_feat_dim ${v_feat_dim} \
+--t_feat_dir ${t_feat_dir} \
+--t_feat_dim ${t_feat_dim} \
+--bsz ${bsz} \
+--results_root ${results_root} \
+--exp_id "exp_only_m" \
+--enc_layers ${enc_layers} \
+--dec_layers ${dec_layers} \
+--t2v_layers ${t2v_layers} \
+--moment_layers ${moment_layers} \
+--dummy_layers ${dummy_layers} \
+--sent_layers ${sent_layers} \
+--max_v_l ${max_v_l} \
+--max_q_l ${max_q_l} \
+--m_classes "[5, 10, 30, 70, 150]" \
 ${@:1}
